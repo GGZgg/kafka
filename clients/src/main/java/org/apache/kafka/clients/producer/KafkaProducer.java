@@ -414,10 +414,16 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             int deliveryTimeoutMs = configureDeliveryTimeout(config, log);
 
             this.apiVersions = new ApiVersions();
+
+            // TODO: 2021/3/24 核心组件，缓冲区
             this.accumulator = new RecordAccumulator(logContext,
+                    //批次大小 默认16kb，
                     config.getInt(ProducerConfig.BATCH_SIZE_CONFIG),
+                    //压缩
                     this.compressionType,
+                    //默认为0，设定缓冲区延迟多长时间发送
                     lingerMs(config),
+                    //重试时间
                     retryBackoffMs,
                     deliveryTimeoutMs,
                     metrics,
@@ -429,14 +435,21 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             List<InetSocketAddress> addresses = ClientUtils.parseAndValidateAddresses(
                     config.getList(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG),
                     config.getString(ProducerConfig.CLIENT_DNS_LOOKUP_CONFIG));
+
+            // TODO: 2021/3/24 判断元数据是否存在 
             if (metadata != null) {
+                // TODO: 2021/3/24 元数据：1.集群节点 2.topic及其分区 ,该分区的ISR列表在哪些分区
                 this.metadata = metadata;
             } else {
+                // TODO: 2021/3/24 创建一个元数据对象 ,METADATA_MAX_AGE_CONFIG默认5min更新元数据
                 this.metadata = new Metadata(retryBackoffMs, config.getLong(ProducerConfig.METADATA_MAX_AGE_CONFIG),
                     true, true, clusterResourceListeners);
+                // TODO: 2021/3/24 更新元数据 
                 this.metadata.update(Cluster.bootstrap(addresses), Collections.emptySet(), time.milliseconds());
             }
             this.errors = this.metrics.sensor("errors");
+
+            // TODO: 2021/3/24 创建一个 sender线程
             this.sender = newSender(logContext, kafkaClient, this.metadata);
             String ioThreadName = NETWORK_THREAD_PREFIX + " | " + clientId;
             this.ioThread = new KafkaThread(ioThreadName, this.sender, true);

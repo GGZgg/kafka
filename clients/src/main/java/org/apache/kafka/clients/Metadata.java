@@ -57,20 +57,33 @@ public class Metadata implements Closeable {
     public static final long TOPIC_EXPIRY_MS = 5 * 60 * 1000;
     private static final long TOPIC_EXPIRY_NEEDS_UPDATE = -1L;
 
+    //todo 更新元数据失败重试请求的最小间隔 默认为10ms
     private final long refreshBackoffMs;
+    //todo 多久自动更新，默认5分钟
     private final long metadataExpireMs;
+    //todo 对于producer来说 ，元数据是有版本的
     private int version;
+    //todo 上一次更新元数据的时间
     private long lastRefreshMs;
+    //todo 上一次成功更新元数据的时间
     private long lastSuccessfulRefreshMs;
     private AuthenticationException authenticationException;
+    //todo kafka集群本身的元数据对象
     private Cluster cluster;
+    //todo 标示，判断是否需要更新元数据
     private boolean needUpdate;
     /* Topics with expiry time */
+    //todo 记录当前已有topic的过期时间
     private final Map<String, Long> topics;
+    //todo metadata对象的监听对象
     private final List<Listener> listeners;
+    //todo 当metadata更新的时候，ClusterResourceListeners列表
     private final ClusterResourceListeners clusterResourceListeners;
+    //todo 是否更新所有的metadata
     private boolean needMetadataForAllTopics;
+    //todo 是否允许自动创建topic
     private final boolean allowAutoTopicCreation;
+    //todo 默认为true ，Producer会定期移除过期的topic
     private final boolean topicExpiryEnabled;
     private boolean isClosed;
 
@@ -250,8 +263,11 @@ public class Metadata implements Closeable {
         this.lastSuccessfulRefreshMs = now;
         this.version += 1;
 
+
         if (topicExpiryEnabled) {
             // Handle expiry of topics from the metadata refresh set.
+            //todo 第一次为空 不会进入
+            //todo 如果第二次进入，通过Producer的sender方法进入,这时候已经有topic了
             for (Iterator<Map.Entry<String, Long>> it = topics.entrySet().iterator(); it.hasNext(); ) {
                 Map.Entry<String, Long> entry = it.next();
                 long expireMs = entry.getValue();
@@ -269,12 +285,14 @@ public class Metadata implements Closeable {
 
         String previousClusterId = cluster.clusterResource().clusterId();
 
+        // TODO: 2021/3/24  这个值默认为false
         if (this.needMetadataForAllTopics) {
             // the listener may change the interested topics, which could cause another metadata refresh.
             // If we have already fetched all topics, however, another fetch should be unnecessary.
             this.needUpdate = false;
             this.cluster = getClusterForCurrentTopics(newCluster);
         } else {
+            //todo 把传入的cluster对象赋值给this.cluster
             this.cluster = newCluster;
         }
 
@@ -286,6 +304,7 @@ public class Metadata implements Closeable {
             clusterResourceListeners.onUpdate(newCluster.clusterResource());
         }
 
+        //todo 唤醒wait的方法
         notifyAll();
         log.debug("Updated cluster metadata version {} to {}", this.version, this.cluster);
     }

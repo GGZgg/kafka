@@ -438,12 +438,15 @@ public class NetworkClient implements KafkaClient {
 
     private void sendInternalMetadataRequest(MetadataRequest.Builder builder,
                                              String nodeConnectionId, long now) {
+        // TODO: 2021/3/26 构造请求元数据的客户端的请求 
         ClientRequest clientRequest = newClientRequest(nodeConnectionId, builder, now, true);
+        // TODO: 2021/3/26 发送请求元数据的客户端请求
         doSend(clientRequest, true, now);
     }
 
     private void doSend(ClientRequest clientRequest, boolean isInternalRequest, long now) {
         ensureActive();
+        //todo 取得需要发送目标的nodeid
         String nodeId = clientRequest.destination();
         if (!isInternalRequest) {
             // If this request came from outside the NetworkClient, validate
@@ -473,6 +476,7 @@ public class NetworkClient implements KafkaClient {
             }
             // The call to build may also throw UnsupportedVersionException, if there are essential
             // fields that cannot be represented in the chosen version.
+            //todo 核心方法
             doSend(clientRequest, isInternalRequest, now, builder.build(version));
         } catch (UnsupportedVersionException unsupportedVersionException) {
             // If the version is not supported, skip sending the request over the wire.
@@ -487,7 +491,9 @@ public class NetworkClient implements KafkaClient {
     }
 
     private void doSend(ClientRequest clientRequest, boolean isInternalRequest, long now, AbstractRequest request) {
+        //todo 获取地址
         String destination = clientRequest.destination();
+        //todo 构建请求头
         RequestHeader header = clientRequest.makeHeader(request.version());
         if (log.isDebugEnabled()) {
             int latestClientVersion = clientRequest.apiKey().latestVersion();
@@ -499,7 +505,9 @@ public class NetworkClient implements KafkaClient {
                         header.apiVersion(), clientRequest.apiKey(), request, clientRequest.correlationId(), destination);
             }
         }
+        //todo 封装send对象 包含目的地和header生成的byteBuffer
         Send send = request.toSend(destination, header);
+        //todo 根据clientRequest对象构建InFlightRequest对象
         InFlightRequest inFlightRequest = new InFlightRequest(
                 clientRequest,
                 header,
@@ -507,7 +515,9 @@ public class NetworkClient implements KafkaClient {
                 request,
                 send,
                 now);
+        //todo 添加请求到inFlightRequests
         this.inFlightRequests.add(inFlightRequest);
+        //todo 将send请求放入队列里
         selector.send(send);
     }
 
@@ -519,6 +529,7 @@ public class NetworkClient implements KafkaClient {
      *                metadata timeout
      * @param now The current time in milliseconds
      * @return The list of responses received
+     * todo 实际发送data
      */
     @Override
     public List<ClientResponse> poll(long timeout, long now) {
@@ -533,8 +544,10 @@ public class NetworkClient implements KafkaClient {
             return responses;
         }
 
+        // TODO: 2021/3/26 封装一个更新元数据的请求,并没有实际发送，缓存在客户端里 核心
         long metadataTimeout = metadataUpdater.maybeUpdate(now);
         try {
+            // TODO: 2021/3/26  通过nio将数据发送出去
             this.selector.poll(Utils.min(timeout, metadataTimeout, defaultRequestTimeoutMs));
         } catch (IOException e) {
             log.error("Unexpected error during I/O", e);
@@ -543,7 +556,9 @@ public class NetworkClient implements KafkaClient {
         // process completed actions
         long updatedNow = this.time.milliseconds();
         List<ClientResponse> responses = new ArrayList<>();
+
         handleCompletedSends(responses, updatedNow);
+        //处理接收的response
         handleCompletedReceives(responses, updatedNow);
         handleDisconnections(responses, updatedNow);
         handleConnections();
@@ -816,9 +831,10 @@ public class NetworkClient implements KafkaClient {
             // If the received response includes a throttle delay, throttle the connection.
             AbstractResponse body = AbstractResponse.parseResponse(req.header.apiKey(), responseStruct);
             maybeThrottle(body, req.header.apiVersion(), req.destination, now);
+            //todo 如果是元数据请求
             if (req.isInternalRequest && body instanceof MetadataResponse)
                 metadataUpdater.handleCompletedMetadataResponse(req.header, now, (MetadataResponse) body);
-            else if (req.isInternalRequest && body instanceof ApiVersionsResponse)
+            else if (req.isInternalRequest && body instanceof ApiVersionsResponse) //todo 如果是版本协调请求
                 handleApiVersionsResponse(responses, req, now, (ApiVersionsResponse) body);
             else
                 responses.add(req.completed(body, now));
@@ -972,6 +988,7 @@ public class NetworkClient implements KafkaClient {
                 log.debug("Give up sending metadata request since no node is available");
                 return reconnectBackoffMs;
             }
+          // TODO: 2021/3/26  进入更新
 
             return maybeUpdate(now, node);
         }
@@ -1003,6 +1020,7 @@ public class NetworkClient implements KafkaClient {
         @Override
         public void handleCompletedMetadataResponse(RequestHeader requestHeader, long now, MetadataResponse response) {
             this.metadataFetchInProgress = false;
+            // TODO: 2021/3/26 从response中获取到元数据信息 
             Cluster cluster = response.cluster();
 
             // If any partition has leader with missing listeners, log a few for diagnosing broker configuration
@@ -1059,6 +1077,7 @@ public class NetworkClient implements KafkaClient {
          * Add a metadata request to the list of sends if we can make one
          */
         private long maybeUpdate(long now, Node node) {
+            // TODO: 2021/3/26 获取nodeid 
             String nodeConnectionId = node.idString();
 
             if (canSendRequest(nodeConnectionId, now)) {
@@ -1072,6 +1091,7 @@ public class NetworkClient implements KafkaClient {
 
 
                 log.debug("Sending metadata request {} to node {}", metadataRequest, node);
+                // TODO: 2021/3/26 核心方法 发送更新元数据的请求
                 sendInternalMetadataRequest(metadataRequest, nodeConnectionId, now);
                 return defaultRequestTimeoutMs;
             }

@@ -34,16 +34,29 @@ import java.util.Set;
 public final class Cluster {
 
     private final boolean isBootstrapConfigured;
+    //todo kafka集群列表
     private final List<Node> nodes;
+    //todo 未授权的
     private final Set<String> unauthorizedTopics;
+    //todo  无效的topic列表
     private final Set<String> invalidTopics;
+    //todo 内置的topic
     private final Set<String> internalTopics;
+    //todo controller所在的节点
     private final Node controller;
+    //todo 每个分区的额详细信息
     private final Map<TopicPartition, PartitionInfo> partitionsByTopicPartition;
+    //todo topic与partiton的关系，一个topic有哪些分区
     private final Map<String, List<PartitionInfo>> partitionsByTopic;
+
+    //todo  可用的topic与partiton的关系，一个topic有哪些分区
     private final Map<String, List<PartitionInfo>> availablePartitionsByTopic;
+    //todo brokerid与partition的关系，一个节点有哪些分区
     private final Map<Integer, List<PartitionInfo>> partitionsByNode;
+    //todo brokerid与node的对应关系,例如 broker_id=0,对应在node0上
     private final Map<Integer, Node> nodesById;
+
+    //todo kafka集群的id信息
     private final ClusterResource clusterResource;
 
     /**

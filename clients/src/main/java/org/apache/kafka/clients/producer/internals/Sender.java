@@ -225,6 +225,7 @@ public class Sender implements Runnable {
 
     /**
      * The main run loop for the sender thread
+     * todo 核心
      */
     public void run() {
         log.debug("Starting Kafka producer I/O thread.");
@@ -232,6 +233,7 @@ public class Sender implements Runnable {
         // main loop, runs until close is called
         while (running) {
             try {
+                // TODO: 2021/3/26 进入run方法
                 run(time.milliseconds());
             } catch (Exception e) {
                 log.error("Uncaught error in kafka producer I/O thread: ", e);
@@ -271,6 +273,7 @@ public class Sender implements Runnable {
      * @param now The current POSIX time in milliseconds
      */
     void run(long now) {
+        // TODO: 2021/3/26 判断是否开启事务
         if (transactionManager != null) {
             try {
                 if (transactionManager.shouldResetProducerStateAfterResolvingSequences())
@@ -307,15 +310,24 @@ public class Sender implements Runnable {
             }
         }
 
+        // TODO: 2021/3/26 准备发送请求数据,封装成clientRequest
         long pollTimeout = sendProducerData(now);
+
+        // TODO: 2021/3/26 真正发送，查看实现类
         client.poll(pollTimeout, now);
     }
 
     private long sendProducerData(long now) {
+        // TODO: 2021/3/26 step1 获取元数据
         Cluster cluster = metadata.fetch();
+
+        // TODO: 2021/3/26  step2 判断哪些partition有消息要发送，获取到这个partition的对应了leaderpartition的broker主机
+        //
         // get the list of partitions with data ready to send
         RecordAccumulator.ReadyCheckResult result = this.accumulator.ready(cluster, now);
 
+
+        // TODO: 2021/3/26 step3 如果有分区的leader还不知道，强制更新metadata 
         // if there are any partitions whose leaders are not known yet, force metadata update
         if (!result.unknownLeaderTopics.isEmpty()) {
             // The set of topics with unknown leader contains topics with leader election pending as well as
@@ -329,6 +341,7 @@ public class Sender implements Runnable {
             this.metadata.requestUpdate();
         }
 
+        // TODO: 2021/3/26 step4  删除没有准备好的node（broker）
         // remove any nodes we aren't ready to send to
         Iterator<Node> iter = result.readyNodes.iterator();
         long notReadyTimeout = Long.MAX_VALUE;
@@ -341,6 +354,8 @@ public class Sender implements Runnable {
         }
 
         // create produce requests
+
+        // TODO: 2021/3/26 step5 构造实际发送的request 
         Map<Integer, List<ProducerBatch>> batches = this.accumulator.drain(cluster, result.readyNodes, this.maxRequestSize, now);
         addToInflightBatches(batches);
         if (guaranteeMessageOrder) {
@@ -351,6 +366,7 @@ public class Sender implements Runnable {
             }
         }
 
+        // TODO: 2021/3/26 step6 放弃超时的batches
         accumulator.resetNextBatchExpiryTime();
         List<ProducerBatch> expiredInflightBatches = getExpiredInflightBatches(now);
         List<ProducerBatch> expiredBatches = this.accumulator.expiredBatches(now);
